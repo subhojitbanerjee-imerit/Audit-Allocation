@@ -92,6 +92,13 @@
       color: var(--muted);
     }
 
+    .browse-text {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -193,7 +200,7 @@
             <input type="file" id="historicalFile" accept=".csv,text/csv">
             <div>
               <strong>Upload Historical Performance CSV</strong>
-              <span id="historicalFileName">Drag CSV here or click to browse</span>
+              <span id="historicalFileName">Drag CSV here or <span class="browse-text">click to browse</span></span>
             </div>
           </label>
         </div>
@@ -202,7 +209,7 @@
             <input type="file" id="populationFile" accept=".csv,text/csv">
             <div>
               <strong>Upload Audit Population CSV</strong>
-              <span id="populationFileName">Drag CSV here or click to browse</span>
+              <span id="populationFileName">Drag CSV here or <span class="browse-text">click to browse</span></span>
             </div>
           </label>
         </div>
@@ -354,6 +361,10 @@
     function wireDropzones() {
       document.querySelectorAll('.dropzone').forEach(zone => {
         const input = $(zone.dataset.target);
+        zone.addEventListener('click', event => {
+          event.preventDefault();
+          input.click();
+        });
         zone.addEventListener('dragover', event => {
           event.preventDefault();
           zone.classList.add('dragover');
@@ -641,11 +652,11 @@
 
     function escapeHtml(value) {
       return String(value == null ? '' : value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
     function escapeAttribute(value) {
