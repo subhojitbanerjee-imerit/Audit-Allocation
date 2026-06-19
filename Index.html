@@ -60,6 +60,7 @@
     }
 
     .dropzone {
+      position: relative;
       min-height: 132px;
       border: 1.5px dashed #9aa7b6;
       border-radius: 8px;
@@ -71,13 +72,25 @@
       transition: border-color .15s ease, background .15s ease;
     }
 
+    .dropzone-content {
+      pointer-events: none;
+      position: relative;
+      z-index: 1;
+    }
+
     .dropzone.dragover {
       border-color: var(--accent);
       background: #ecfdf5;
     }
 
     .csv-input {
-      display: none;
+      cursor: pointer;
+      inset: 0;
+      opacity: 0;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
     }
 
     .dropzone strong {
@@ -196,22 +209,22 @@
       <h2 class="panel-title">1. File Upload</h2>
       <div class="row g-3">
         <div class="col-md-6">
-          <div class="dropzone" data-target="historicalFile" role="button" tabindex="0">
-            <div>
+          <div class="dropzone" data-target="historicalFile">
+            <input class="csv-input" type="file" id="historicalFile" accept=".csv,text/csv,application/vnd.ms-excel">
+            <div class="dropzone-content">
               <strong>Upload Historical Performance CSV</strong>
               <span id="historicalFileName">Drag CSV here or <span class="browse-text">click to browse</span></span>
             </div>
           </div>
-          <input class="csv-input" type="file" id="historicalFile" accept=".csv,text/csv,application/vnd.ms-excel">
         </div>
         <div class="col-md-6">
-          <div class="dropzone" data-target="populationFile" role="button" tabindex="0">
-            <div>
+          <div class="dropzone" data-target="populationFile">
+            <input class="csv-input" type="file" id="populationFile" accept=".csv,text/csv,application/vnd.ms-excel">
+            <div class="dropzone-content">
               <strong>Upload Audit Population CSV</strong>
               <span id="populationFileName">Drag CSV here or <span class="browse-text">click to browse</span></span>
             </div>
           </div>
-          <input class="csv-input" type="file" id="populationFile" accept=".csv,text/csv,application/vnd.ms-excel">
         </div>
       </div>
     </section>
@@ -342,39 +355,31 @@
     const $ = id => document.getElementById(id);
 
     document.addEventListener('DOMContentLoaded', () => {
-      wireDropzones();
-      addTlRow('Anupam', 4);
-      addTlRow('Monika', 5);
-      addTlRow('Rakesh', 3);
-      $('seed').value = new Date().toISOString().slice(0, 10);
-      updateCapacityPreview();
+      try {
+        addTlRow('Anupam', 4);
+        addTlRow('Monika', 5);
+        addTlRow('Rakesh', 3);
+        $('seed').value = new Date().toISOString().slice(0, 10);
+        updateCapacityPreview();
+        wireDropzones();
 
-      $('addTlBtn').addEventListener('click', () => addTlRow('', 0));
-      $('runBtn').addEventListener('click', runSelection);
-      $('downloadCsvBtn').addEventListener('click', downloadCsv);
-      $('downloadExcelBtn').addEventListener('click', downloadExcel);
-      $('saveConfigBtn').addEventListener('click', saveConfig);
-      $('loadConfigBtn').addEventListener('click', loadConfig);
-      $('historyBtn').addEventListener('click', loadHistory);
-      $('clearHistoryBtn').addEventListener('click', clearHistory);
-      $('minutesPerTask').addEventListener('input', updateCapacityPreview);
+        $('addTlBtn').addEventListener('click', () => addTlRow('', 0));
+        $('runBtn').addEventListener('click', runSelection);
+        $('downloadCsvBtn').addEventListener('click', downloadCsv);
+        $('downloadExcelBtn').addEventListener('click', downloadExcel);
+        $('saveConfigBtn').addEventListener('click', saveConfig);
+        $('loadConfigBtn').addEventListener('click', loadConfig);
+        $('historyBtn').addEventListener('click', loadHistory);
+        $('clearHistoryBtn').addEventListener('click', clearHistory);
+        $('minutesPerTask').addEventListener('input', updateCapacityPreview);
+      } catch (error) {
+        setStatus(`Startup error: ${error.message || error}`, true);
+      }
     });
 
     function wireDropzones() {
       document.querySelectorAll('.dropzone').forEach(zone => {
         const input = $(zone.dataset.target);
-        zone.addEventListener('click', event => {
-          event.preventDefault();
-          input.value = '';
-          input.click();
-        });
-        zone.addEventListener('keydown', event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            input.value = '';
-            input.click();
-          }
-        });
         zone.addEventListener('dragover', event => {
           event.preventDefault();
           zone.classList.add('dragover');
