@@ -228,8 +228,10 @@
           <input type="text" class="form-control" id="seed" placeholder="Optional reproducible seed">
         </div>
         <div class="col-md-6">
-          <label class="form-label" for="batchMultipliers">Batch Criticality Multipliers</label>
-          <textarea class="form-control" id="batchMultipliers" rows="2" placeholder="batch_id=1.5&#10;batch_id_2=2"></textarea>
+          <label class="form-label">Batch Criticality</label>
+          <div class="form-control bg-light" style="height: auto; min-height: 46px;">
+            Auto-calculated from batch volume, historical labeler risk, and low-confidence task rate.
+          </div>
         </div>
       </div>
     </section>
@@ -435,21 +437,8 @@
         tls: [...document.querySelectorAll('#tlRows tr')].map(row => ({
           name: row.querySelector('.tl-name').value.trim(),
           hours: Number(row.querySelector('.tl-hours').value || 0)
-        })),
-        batchMultipliers: parseBatchMultipliers()
+        }))
       };
-    }
-
-    function parseBatchMultipliers() {
-      return $('batchMultipliers').value
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean)
-        .map(line => {
-          const [batchId, multiplier] = line.split('=');
-          return { batchId: (batchId || '').trim(), multiplier: Number((multiplier || '1').trim()) };
-        })
-        .filter(item => item.batchId && Number.isFinite(item.multiplier) && item.multiplier > 0);
     }
 
     function updateCapacityPreview() {
@@ -498,6 +487,7 @@
         ['batchName', 'Batch Name'],
         ['population', 'Population'],
         ['averageHistoricalAccuracy', 'Average Historical Accuracy'],
+        ['batchCriticalityMultiplier', 'Auto Criticality Multiplier'],
         ['riskScore', 'Risk Score'],
         ['allocatedAudits', 'Allocated Audits'],
         ['selectedAudits', 'Selected Audits']
@@ -528,6 +518,7 @@
         ['historical_score', 'historical_score'],
         ['risk_weight', 'risk_weight'],
         ['confidence_weight', 'confidence_weight'],
+        ['batch_criticality_multiplier', 'batch_criticality_multiplier'],
         ['priority_score', 'priority_score'],
         ['assigned_tl', 'assigned_tl']
       ]);
@@ -583,9 +574,6 @@
     function applyConfig(config) {
       $('minutesPerTask').value = config.minutesPerTask || 5;
       $('seed').value = config.seed || '';
-      $('batchMultipliers').value = Object.keys(config.batchMultipliers || {})
-        .map(batchId => `${batchId}=${config.batchMultipliers[batchId]}`)
-        .join('\n');
       $('tlRows').innerHTML = '';
       (config.tls || []).forEach(tl => addTlRow(tl.name, tl.hours));
       updateCapacityPreview();

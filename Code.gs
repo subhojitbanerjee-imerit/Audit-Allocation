@@ -55,7 +55,7 @@ function processAuditSelection(payload) {
 
   const config = normalizeConfig(payload.config);
   const historicalLookup = buildHistoricalLookup(historicalRows.rows);
-  const enrichedRows = enrichPopulation(populationRows.rows, historicalLookup, config.batchMultipliers);
+  const enrichedRows = enrichPopulation(populationRows.rows, historicalLookup);
   const capacity = calculateTlCapacity(config.tls, config.minutesPerTask);
   const selected = selectAuditTasks(enrichedRows, capacity.totalCapacity, config.seed);
   const assigned = assignTls(selected, capacity.tls);
@@ -99,20 +99,10 @@ function normalizeConfig(config) {
 
   if (!tls.length) throw new Error('At least one TL with available hours is required.');
 
-  const batchMultipliers = {};
-  (normalized.batchMultipliers || []).forEach(item => {
-    const batchId = String(item.batchId || '').trim();
-    const multiplier = Number(item.multiplier || 1);
-    if (batchId && Number.isFinite(multiplier) && multiplier > 0) {
-      batchMultipliers[batchId] = multiplier;
-    }
-  });
-
   return {
     minutesPerTask,
     tls,
-    seed: normalized.seed || String(Date.now()),
-    batchMultipliers
+    seed: normalized.seed || String(Date.now())
   };
 }
 
@@ -153,9 +143,9 @@ function buildHistoricalLookup(rows) {
   return lookup;
 }
 
-function enrichPopulation(rows, historicalLookup, batchMultipliers) {
+function enrichPopulation(rows, historicalLookup) {
   const seenTaskIds = new Set();
-  return rows
+  const baseRows = rows
     .filter(row => {
       const taskId = String(row.imerit_task_id || '').trim();
       if (!taskId || seenTaskIds.has(taskId)) return false;
@@ -168,17 +158,41 @@ function enrichPopulation(rows, historicalLookup, batchMultipliers) {
       const historicalScore = getHistoricalScore(historicalLookup[labeler], batchId);
       const riskWeight = getRiskWeight(historicalScore);
       const confidenceWeight = getConfidenceWeight(row.qc_confidence);
-      const multiplier = Number(batchMultipliers[batchId] || 1);
-      const priorityScore = riskWeight * confidenceWeight * multiplier;
 
       return Object.assign({}, row, {
         historical_score: historicalScore == null ? '' : historicalScore,
         risk_weight: riskWeight,
         confidence_weight: confidenceWeight,
-        batch_criticality_multiplier: multiplier,
-        priority_score: priorityScore
+        batch_criticality_multiplier: 1,
+        priority_score: riskWeight * confidenceWeight
       });
     });
+
+  const multipliers = calculateBatchCriticalityMultipliers(baseRows);
+  return baseRows.map(row => {
+    const multiplier = multipliers[String(row.batch_id || '').trim()] || 1;
+    return Object.assign({}, row, {
+      batch_criticality_multiplier: multiplier,
+      priority_score: row.risk_weight * row.confidence_weight * multiplier
+    });
+  });
+}
+
+function calculateBatchCriticalityMultipliers(rows) {
+  const byBatch = groupBy(rows, row => String(row.batch_id || '').trim());
+  const batchIds = Object.keys(byBatch);
+  const maxPopulation = Math.max.apply(null, batchIds.map(batchId => byBatch[batchId].length).concat([1]));
+
+  return batchIds.reduce((map, batchId) => {
+    const batchRows = byBatch[batchId];
+    const populationFactor = batchRows.length / maxPopulation;
+    const lowConfidenceFactor = batchRows.filter(row => Number(row.confidence_weight) === 2).length / Math.max(1, batchRows.length);
+    const averageRiskWeight = average(batchRows.map(row => row.risk_weight));
+    const historicalRiskFactor = (Number(averageRiskWeight) - 1) / 4;
+    const blendedScore = (populationFactor * 0.4) + (historicalRiskFactor * 0.4) + (lowConfidenceFactor * 0.2);
+    map[batchId] = Math.round((1 + blendedScore) * 100) / 100;
+    return map;
+  }, {});
 }
 
 function getHistoricalScore(historyRow, batchId) {
@@ -353,6 +367,7 @@ function buildDashboardSummary(populationRows, selectedRows, capacity, startedAt
       batchName: batchId,
       population: rows.length,
       averageHistoricalAccuracy: average(rows.map(row => row.historical_score).filter(value => value !== '')),
+      batchCriticalityMultiplier: average(rows.map(row => row.batch_criticality_multiplier)),
       riskScore: sum(rows.map(row => row.priority_score)),
       allocatedAudits: allocationTargets[batchId] || 0,
       selectedAudits: selectedCount
@@ -412,6 +427,7 @@ function toOutputRow(row) {
     historical_score: formatNumber(row.historical_score),
     risk_weight: row.risk_weight,
     confidence_weight: row.confidence_weight,
+    batch_criticality_multiplier: formatNumber(row.batch_criticality_multiplier),
     priority_score: formatNumber(row.priority_score),
     assigned_tl: row.assigned_tl
   };
