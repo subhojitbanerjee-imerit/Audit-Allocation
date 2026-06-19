@@ -1,25 +1,28 @@
 # SimTeacher V2 Risk-Based Audit Task Picker
 
-Google Apps Script web application for generating risk-based audit samples from:
+Vercel-ready static web application for generating risk-based audit samples from:
 
 - Historical labeler performance CSV
 - Audit population CSV
 - TL availability and audit duration
-- Optional batch criticality multipliers
+- Auto-calculated batch criticality
 - Reproducible random seed
 
 ## Files
 
-- `Code.gs` - server-side Apps Script processing, sampling, summaries, exports, saved config, and history
-- `Index.html` - Bootstrap web UI with drag-and-drop upload, TL configuration, dashboard, and downloads
-- `appsscript.json` - Apps Script manifest
+- `index.html` - complete static web app with CSV upload, parsing, audit allocation, dashboard, and downloads
+- `vercel.json` - Vercel static deployment settings
+- `Code.gs`, `appsscript.json` - legacy Apps Script version kept for reference
 
-## Deploy
+## Deploy To Vercel
 
-1. Create a Google Apps Script project.
-2. Add the three files in this folder to the project.
-3. Deploy as a Web App.
-4. Set execution as the deploying user and grant access according to your team policy.
+1. Push this repository to GitHub.
+2. Import the repository in Vercel.
+3. Keep the framework preset as `Other`.
+4. Leave build command and output directory empty.
+5. Deploy.
+
+The app runs fully in the browser. CSV files are not uploaded to a server.
 
 ## CSV Requirements
 
@@ -35,5 +38,7 @@ The historical performance CSV must use `simteacher_v2_labeler` as the first col
 
 - Blank or missing historical scores use default risk weight `3`.
 - `qc_confidence=low` uses confidence weight `2`; all other confidence values use `1`.
+- Batch criticality is auto-calculated from batch volume, average historical risk, and low-confidence task rate.
 - The random seed makes selection reproducible for the same CSVs and configuration.
 - Excel export is generated as an `.xls` HTML workbook for Apps Script compatibility.
+- If your data is in Excel, export it as `CSV UTF-8 (*.csv)` before uploading.
