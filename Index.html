@@ -112,6 +112,22 @@
       text-underline-offset: 3px;
     }
 
+    .file-feedback {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+
+    .file-feedback.ok {
+      color: #047857;
+    }
+
+    .file-feedback.error {
+      color: #b91c1c;
+    }
+
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -214,6 +230,7 @@
             <div class="dropzone-content">
               <strong>Upload Historical Performance CSV</strong>
               <span id="historicalFileName">Drag CSV here or <span class="browse-text">click to browse</span></span>
+              <span class="file-feedback" id="historicalFileFeedback"></span>
             </div>
           </div>
         </div>
@@ -223,6 +240,7 @@
             <div class="dropzone-content">
               <strong>Upload Audit Population CSV</strong>
               <span id="populationFileName">Drag CSV here or <span class="browse-text">click to browse</span></span>
+              <span class="file-feedback" id="populationFileFeedback"></span>
             </div>
           </div>
         </div>
@@ -398,24 +416,51 @@
     }
 
     function handleFile(inputId, file) {
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        setStatus('Only CSV files are supported.', true);
+      const isHistorical = inputId === 'historicalFile';
+      const nameId = isHistorical ? 'historicalFileName' : 'populationFileName';
+      const feedbackId = isHistorical ? 'historicalFileFeedback' : 'populationFileFeedback';
+      const feedback = $(feedbackId);
+      const fileName = file && file.name ? file.name : '';
+
+      if (!fileName.toLowerCase().endsWith('.csv')) {
+        const message = 'Please select a .csv file, not Excel .xlsx/.xls.';
+        setFileFeedback(feedback, message, true);
+        setStatus(message, true);
         return;
       }
 
       const reader = new FileReader();
       reader.onload = () => {
-        if (inputId === 'historicalFile') {
+        const text = String(reader.result || '');
+        if (!text.trim()) {
+          const message = `${fileName} is empty.`;
+          setFileFeedback(feedback, message, true);
+          setStatus(message, true);
+          return;
+        }
+
+        if (isHistorical) {
           state.historicalCsv = reader.result;
-          $('historicalFileName').textContent = file.name;
+          $(nameId).textContent = fileName;
         } else {
           state.populationCsv = reader.result;
-          $('populationFileName').textContent = file.name;
+          $(nameId).textContent = fileName;
         }
-        setStatus(`${file.name} loaded.`);
+        setFileFeedback(feedback, 'CSV loaded successfully.', false);
+        setStatus(`${fileName} loaded.`);
       };
-      reader.onerror = () => setStatus(`Could not read ${file.name}.`, true);
+      reader.onerror = () => {
+        const message = `Could not read ${fileName}.`;
+        setFileFeedback(feedback, message, true);
+        setStatus(message, true);
+      };
       reader.readAsText(file);
+    }
+
+    function setFileFeedback(element, message, isError) {
+      element.textContent = message;
+      element.classList.toggle('ok', !isError);
+      element.classList.toggle('error', Boolean(isError));
     }
 
     function addTlRow(name, hours) {
