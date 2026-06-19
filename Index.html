@@ -76,7 +76,7 @@
       background: #ecfdf5;
     }
 
-    .dropzone input {
+    .csv-input {
       display: none;
     }
 
@@ -196,22 +196,22 @@
       <h2 class="panel-title">1. File Upload</h2>
       <div class="row g-3">
         <div class="col-md-6">
-          <label class="dropzone" data-target="historicalFile">
-            <input type="file" id="historicalFile" accept=".csv,text/csv">
+          <div class="dropzone" data-target="historicalFile" role="button" tabindex="0">
             <div>
               <strong>Upload Historical Performance CSV</strong>
               <span id="historicalFileName">Drag CSV here or <span class="browse-text">click to browse</span></span>
             </div>
-          </label>
+          </div>
+          <input class="csv-input" type="file" id="historicalFile" accept=".csv,text/csv,application/vnd.ms-excel">
         </div>
         <div class="col-md-6">
-          <label class="dropzone" data-target="populationFile">
-            <input type="file" id="populationFile" accept=".csv,text/csv">
+          <div class="dropzone" data-target="populationFile" role="button" tabindex="0">
             <div>
               <strong>Upload Audit Population CSV</strong>
               <span id="populationFileName">Drag CSV here or <span class="browse-text">click to browse</span></span>
             </div>
-          </label>
+          </div>
+          <input class="csv-input" type="file" id="populationFile" accept=".csv,text/csv,application/vnd.ms-excel">
         </div>
       </div>
     </section>
@@ -363,7 +363,15 @@
         const input = $(zone.dataset.target);
         zone.addEventListener('click', event => {
           event.preventDefault();
+          input.value = '';
           input.click();
+        });
+        zone.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            input.value = '';
+            input.click();
+          }
         });
         zone.addEventListener('dragover', event => {
           event.preventDefault();
