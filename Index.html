@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SimTeacher V2 Risk-Based Audit Task Picker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #17202a;
+      --muted: #5b6776;
+      --line: #d8dee6;
+      --panel: #ffffff;
+      --soft: #f4f7fb;
+      --accent: #0f766e;
+      --accent-dark: #115e59;
+      --warn: #b45309;
+    }
+
+    body {
+      background: var(--soft);
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .app-shell {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 24px 16px 44px;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .app-title {
+      font-size: 28px;
+      line-height: 1.15;
+      margin: 0;
+      font-weight: 700;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 14px;
+    }
+
+    .dropzone {
+      min-height: 132px;
+      border: 1.5px dashed #9aa7b6;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 16px;
+      background: #fbfcfe;
+      transition: border-color .15s ease, background .15s ease;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: #ecfdf5;
+    }
+
+    .dropzone input {
+      display: none;
+    }
+
+    .dropzone strong {
+      display: block;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+
+    .dropzone span,
+    .metric-label,
+    .small-muted {
+      color: var(--muted);
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .btn-primary {
+      --bs-btn-bg: var(--accent);
+      --bs-btn-border-color: var(--accent);
+      --bs-btn-hover-bg: var(--accent-dark);
+      --bs-btn-hover-border-color: var(--accent-dark);
+    }
+
+    .table-wrap {
+      max-height: 460px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .table {
+      margin: 0;
+      min-width: 760px;
+    }
+
+    .table thead th {
+      position: sticky;
+      top: 0;
+      background: #eef2f7;
+      z-index: 1;
+      white-space: nowrap;
+    }
+
+    .progress {
+      height: 10px;
+    }
+
+    .status-line {
+      min-height: 22px;
+      color: var(--muted);
+    }
+
+    .history-list {
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    @media (max-width: 900px) {
+      .app-header {
+        align-items: start;
+        flex-direction: column;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <h1 class="app-title">SimTeacher V2 Risk-Based Audit Task Picker</h1>
+        <div class="small-muted mt-1">Risk-weighted sampling, labeler coverage, TL assignment, and exportable audit output.</div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-secondary btn-sm" id="loadConfigBtn">Load Config</button>
+        <button class="btn btn-outline-secondary btn-sm" id="saveConfigBtn">Save Config</button>
+        <button class="btn btn-outline-secondary btn-sm" id="historyBtn">History</button>
+      </div>
+    </header>
+
+    <section class="panel">
+      <h2 class="panel-title">1. File Upload</h2>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="dropzone" data-target="historicalFile">
+            <input type="file" id="historicalFile" accept=".csv,text/csv">
+            <div>
+              <strong>Upload Historical Performance CSV</strong>
+              <span id="historicalFileName">Drag CSV here or click to browse</span>
+            </div>
+          </label>
+        </div>
+        <div class="col-md-6">
+          <label class="dropzone" data-target="populationFile">
+            <input type="file" id="populationFile" accept=".csv,text/csv">
+            <div>
+              <strong>Upload Audit Population CSV</strong>
+              <span id="populationFileName">Drag CSV here or click to browse</span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">2. Audit Configuration</h2>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label" for="minutesPerTask">Minutes Per Audit Task</label>
+          <input type="number" min="1" step="1" class="form-control" id="minutesPerTask" value="5">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="seed">Random Seed</label>
+          <input type="text" class="form-control" id="seed" placeholder="Optional reproducible seed">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="batchMultipliers">Batch Criticality Multipliers</label>
+          <textarea class="form-control" id="batchMultipliers" rows="2" placeholder="batch_id=1.5&#10;batch_id_2=2"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+        <h2 class="panel-title mb-0">3. TL Capacity</h2>
+        <button class="btn btn-outline-primary btn-sm" id="addTlBtn">Add TL</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>TL Name</th>
+              <th style="width: 180px;">Available Hours</th>
+              <th style="width: 180px;">Capacity</th>
+              <th style="width: 90px;"></th>
+            </tr>
+          </thead>
+          <tbody id="tlRows"></tbody>
+        </table>
+      </div>
+      <div class="small-muted" id="capacityPreview">Total Audit Capacity: 0</div>
+    </section>
+
+    <section class="panel">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <button class="btn btn-primary" id="runBtn">Generate Audit Sample</button>
+        <button class="btn btn-outline-secondary" id="downloadCsvBtn" disabled>Download CSV</button>
+        <button class="btn btn-outline-secondary" id="downloadExcelBtn" disabled>Download Excel</button>
+        <div class="flex-grow-1">
+          <div class="progress" role="progressbar" aria-label="Processing progress">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+          </div>
+          <div class="status-line mt-1" id="statusLine"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard" class="d-none">
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-label">Total Capacity</div>
+          <div class="metric-value" id="metricCapacity">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Total Population</div>
+          <div class="metric-value" id="metricPopulation">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Selected Audits</div>
+          <div class="metric-value" id="metricSelected">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Coverage</div>
+          <div class="metric-value" id="metricCoverage">0%</div>
+        </div>
+      </div>
+
+      <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#batchTab" type="button">Summary</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#labelerTab" type="button">Labeler Summary</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tlTab" type="button">TL Summary</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#outputTab" type="button">Final Output</button>
+        </li>
+      </ul>
+
+      <div class="tab-content panel rounded-top-0">
+        <div class="tab-pane fade show active" id="batchTab">
+          <div class="table-wrap" id="batchTable"></div>
+        </div>
+        <div class="tab-pane fade" id="labelerTab">
+          <div class="table-wrap" id="labelerTable"></div>
+        </div>
+        <div class="tab-pane fade" id="tlTab">
+          <div class="table-wrap" id="tlTable"></div>
+        </div>
+        <div class="tab-pane fade" id="outputTab">
+          <div class="table-wrap" id="outputTable"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel d-none" id="historyPanel">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="panel-title mb-0">Selection History</h2>
+        <button class="btn btn-outline-danger btn-sm" id="clearHistoryBtn">Clear History</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const state = {
+      historicalCsv: '',
+      populationCsv: '',
+      result: null
+    };
+
+    const $ = id => document.getElementById(id);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      wireDropzones();
+      addTlRow('Anupam', 4);
+      addTlRow('Monika', 5);
+      addTlRow('Rakesh', 3);
+      $('seed').value = new Date().toISOString().slice(0, 10);
+      updateCapacityPreview();
+
+      $('addTlBtn').addEventListener('click', () => addTlRow('', 0));
+      $('runBtn').addEventListener('click', runSelection);
+      $('downloadCsvBtn').addEventListener('click', downloadCsv);
+      $('downloadExcelBtn').addEventListener('click', downloadExcel);
+      $('saveConfigBtn').addEventListener('click', saveConfig);
+      $('loadConfigBtn').addEventListener('click', loadConfig);
+      $('historyBtn').addEventListener('click', loadHistory);
+      $('clearHistoryBtn').addEventListener('click', clearHistory);
+      $('minutesPerTask').addEventListener('input', updateCapacityPreview);
+    });
+
+    function wireDropzones() {
+      document.querySelectorAll('.dropzone').forEach(zone => {
+        const input = $(zone.dataset.target);
+        zone.addEventListener('dragover', event => {
+          event.preventDefault();
+          zone.classList.add('dragover');
+        });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', event => {
+          event.preventDefault();
+          zone.classList.remove('dragover');
+          const file = event.dataTransfer.files[0];
+          if (file) handleFile(input.id, file);
+        });
+        input.addEventListener('change', () => {
+          if (input.files[0]) handleFile(input.id, input.files[0]);
+        });
+      });
+    }
+
+    function handleFile(inputId, file) {
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        setStatus('Only CSV files are supported.', true);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (inputId === 'historicalFile') {
+          state.historicalCsv = reader.result;
+          $('historicalFileName').textContent = file.name;
+        } else {
+          state.populationCsv = reader.result;
+          $('populationFileName').textContent = file.name;
+        }
+        setStatus(`${file.name} loaded.`);
+      };
+      reader.onerror = () => setStatus(`Could not read ${file.name}.`, true);
+      reader.readAsText(file);
+    }
+
+    function addTlRow(name, hours) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input class="form-control form-control-sm tl-name" value="${escapeAttribute(name || '')}" placeholder="TL name"></td>
+        <td><input class="form-control form-control-sm tl-hours" type="number" min="0" step="0.25" value="${Number(hours || 0)}"></td>
+        <td class="tl-capacity">0</td>
+        <td><button class="btn btn-outline-danger btn-sm remove-tl">Remove</button></td>
+      `;
+      $('tlRows').appendChild(tr);
+      tr.querySelector('.remove-tl').addEventListener('click', () => {
+        tr.remove();
+        updateCapacityPreview();
+      });
+      tr.querySelectorAll('input').forEach(input => input.addEventListener('input', updateCapacityPreview));
+      updateCapacityPreview();
+    }
+
+    function collectConfig() {
+      return {
+        minutesPerTask: Number($('minutesPerTask').value || 5),
+        seed: $('seed').value.trim(),
+        tls: [...document.querySelectorAll('#tlRows tr')].map(row => ({
+          name: row.querySelector('.tl-name').value.trim(),
+          hours: Number(row.querySelector('.tl-hours').value || 0)
+        })),
+        batchMultipliers: parseBatchMultipliers()
+      };
+    }
+
+    function parseBatchMultipliers() {
+      return $('batchMultipliers').value
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          const [batchId, multiplier] = line.split('=');
+          return { batchId: (batchId || '').trim(), multiplier: Number((multiplier || '1').trim()) };
+        })
+        .filter(item => item.batchId && Number.isFinite(item.multiplier) && item.multiplier > 0);
+    }
+
+    function updateCapacityPreview() {
+      const minutes = Number($('minutesPerTask').value || 5);
+      let total = 0;
+      document.querySelectorAll('#tlRows tr').forEach(row => {
+        const hours = Number(row.querySelector('.tl-hours').value || 0);
+        const capacity = minutes > 0 ? Math.floor((hours * 60) / minutes) : 0;
+        row.querySelector('.tl-capacity').textContent = capacity;
+        total += capacity;
+      });
+      $('capacityPreview').textContent = `Total Audit Capacity: ${total}`;
+    }
+
+    function runSelection() {
+      if (!state.historicalCsv || !state.populationCsv) {
+        setStatus('Both CSV files are mandatory.', true);
+        return;
+      }
+
+      setBusy(true, 'Uploading and processing CSV data...');
+      google.script.run
+        .withSuccessHandler(result => {
+          state.result = result;
+          renderDashboard(result);
+          setBusy(false, 'Audit sample generated.');
+        })
+        .withFailureHandler(error => {
+          setBusy(false, error.message || String(error), true);
+        })
+        .processAuditSelection({
+          historicalCsv: state.historicalCsv,
+          populationCsv: state.populationCsv,
+          config: collectConfig()
+        });
+    }
+
+    function renderDashboard(result) {
+      const summary = result.summary;
+      $('dashboard').classList.remove('d-none');
+      $('metricCapacity').textContent = number(summary.totalCapacity);
+      $('metricPopulation').textContent = number(summary.totalPopulation);
+      $('metricSelected').textContent = number(summary.totalSelectedAudits);
+      $('metricCoverage').textContent = `${formatNumber(summary.coveragePercent)}%`;
+      $('batchTable').innerHTML = renderTable(summary.batchSummary, [
+        ['batchName', 'Batch Name'],
+        ['population', 'Population'],
+        ['averageHistoricalAccuracy', 'Average Historical Accuracy'],
+        ['riskScore', 'Risk Score'],
+        ['allocatedAudits', 'Allocated Audits'],
+        ['selectedAudits', 'Selected Audits']
+      ]);
+      $('labelerTable').innerHTML = renderTable(summary.labelerSummary, [
+        ['labeler', 'Labeler'],
+        ['historicalScore', 'Historical Score'],
+        ['riskWeight', 'Risk Weight'],
+        ['population', 'Population'],
+        ['selectedAudits', 'Selected Audits']
+      ]);
+      $('tlTable').innerHTML = renderTable(summary.tlSummary, [
+        ['name', 'TL Name'],
+        ['hours', 'Hours'],
+        ['capacity', 'Capacity'],
+        ['assignedAudits', 'Assigned Audits'],
+        ['remainingCapacity', 'Remaining Capacity']
+      ]);
+      $('outputTable').innerHTML = renderTable(result.selectedRows.slice(0, 1000), [
+        ['imerit_task_id', 'imerit_task_id'],
+        ['qc_replay_link', 'qc_replay_link'],
+        ['batch_id', 'batch_id'],
+        ['simteacher_v2_labeler', 'simteacher_v2_labeler'],
+        ['v2_end_date_ist', 'v2_end_date_ist'],
+        ['selectQcResult', 'selectQcResult'],
+        ['failureReason', 'failureReason'],
+        ['qc_confidence', 'qc_confidence'],
+        ['historical_score', 'historical_score'],
+        ['risk_weight', 'risk_weight'],
+        ['confidence_weight', 'confidence_weight'],
+        ['priority_score', 'priority_score'],
+        ['assigned_tl', 'assigned_tl']
+      ]);
+      $('downloadCsvBtn').disabled = false;
+      $('downloadExcelBtn').disabled = false;
+    }
+
+    function renderTable(rows, columns) {
+      if (!rows || !rows.length) return '<div class="p-3 small-muted">No rows to display.</div>';
+      return `
+        <table class="table table-sm table-hover">
+          <thead><tr>${columns.map(column => `<th>${escapeHtml(column[1])}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${rows.map(row => `<tr>${columns.map(column => `<td>${formatCell(row[column[0]])}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function downloadCsv() {
+      if (!state.result) return;
+      downloadBlob(state.result.exports.csv, 'simteacher_v2_audit_selection.csv', 'text/csv;charset=utf-8');
+    }
+
+    function downloadExcel() {
+      if (!state.result) return;
+      downloadBlob(state.result.exports.excelHtml, 'simteacher_v2_audit_selection.xls', 'application/vnd.ms-excel;charset=utf-8');
+    }
+
+    function saveConfig() {
+      setStatus('Saving configuration...');
+      google.script.run
+        .withSuccessHandler(() => setStatus('Configuration saved.'))
+        .withFailureHandler(error => setStatus(error.message || String(error), true))
+        .saveConfiguration(collectConfig());
+    }
+
+    function loadConfig() {
+      setStatus('Loading saved configuration...');
+      google.script.run
+        .withSuccessHandler(config => {
+          if (!config) {
+            setStatus('No saved configuration found.');
+            return;
+          }
+          applyConfig(config);
+          setStatus('Configuration loaded.');
+        })
+        .withFailureHandler(error => setStatus(error.message || String(error), true))
+        .getSavedConfiguration();
+    }
+
+    function applyConfig(config) {
+      $('minutesPerTask').value = config.minutesPerTask || 5;
+      $('seed').value = config.seed || '';
+      $('batchMultipliers').value = Object.keys(config.batchMultipliers || {})
+        .map(batchId => `${batchId}=${config.batchMultipliers[batchId]}`)
+        .join('\n');
+      $('tlRows').innerHTML = '';
+      (config.tls || []).forEach(tl => addTlRow(tl.name, tl.hours));
+      updateCapacityPreview();
+    }
+
+    function loadHistory() {
+      $('historyPanel').classList.toggle('d-none');
+      google.script.run
+        .withSuccessHandler(history => {
+          $('historyList').innerHTML = history.length ? history.map(item => `
+            <div class="border-bottom py-2">
+              <strong>${escapeHtml(new Date(item.generatedAt).toLocaleString())}</strong>
+              <div class="small-muted">Population ${number(item.totalPopulation)} | Capacity ${number(item.totalCapacity)} | Selected ${number(item.totalSelectedAudits)} | Coverage ${formatNumber(item.coveragePercent)}%</div>
+            </div>
+          `).join('') : '<div class="small-muted">No history yet.</div>';
+        })
+        .withFailureHandler(error => setStatus(error.message || String(error), true))
+        .getAuditSelectionHistory();
+    }
+
+    function clearHistory() {
+      google.script.run
+        .withSuccessHandler(() => loadHistory())
+        .withFailureHandler(error => setStatus(error.message || String(error), true))
+        .clearAuditSelectionHistory();
+    }
+
+    function setBusy(isBusy, message, isError) {
+      $('runBtn').disabled = isBusy;
+      $('progressBar').style.width = isBusy ? '70%' : '100%';
+      setTimeout(() => {
+        if (!isBusy) $('progressBar').style.width = '0%';
+      }, 700);
+      setStatus(message, isError);
+    }
+
+    function setStatus(message, isError) {
+      $('statusLine').textContent = message || '';
+      $('statusLine').style.color = isError ? '#b91c1c' : '';
+    }
+
+    function downloadBlob(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function formatCell(value) {
+      if (typeof value === 'number') return formatNumber(value);
+      const text = escapeHtml(value == null ? '' : value);
+      if (/^https?:\/\//.test(String(value || ''))) {
+        return `<a href="${text}" target="_blank" rel="noopener">Open</a>`;
+      }
+      return text;
+    }
+
+    function formatNumber(value) {
+      const numberValue = Number(value);
+      if (!Number.isFinite(numberValue)) return '';
+      return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(numberValue);
+    }
+
+    function number(value) {
+      return new Intl.NumberFormat().format(Number(value || 0));
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value);
+    }
+  </script>
+</body>
+</html>
