@@ -12,7 +12,7 @@ Vercel-ready static web application for generating risk-based audit samples from
 
 - `index.html` - complete static web app with CSV upload, parsing, audit allocation, dashboard, and downloads
 - `vercel.json` - Vercel static deployment settings
-- `Code.gs`, `appsscript.json` - legacy Apps Script version kept for reference
+- `appsscript.json` - legacy Apps Script manifest kept for reference
 
 ## Deploy To Vercel
 
