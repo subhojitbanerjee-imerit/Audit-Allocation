@@ -1,4 +1,4 @@
-# SimTeacher V2 Risk-Based Audit Task Picker
+# SimTeacher Risk-Based Audit Task Picker
 
 Vercel-ready static web application for generating risk-based audit samples from:
 
